@@ -38,8 +38,6 @@
     </div>
 
     <script>
-        const ONLINE_JSON_URL = "https://gist.githubusercontent.com/jashrenarldp-eng/7be4a19ecdac9710b186a0e0e2f7be04/raw/ecb8bc690097507d79c0f5b7b5b8f07d4b7961f3/gistfile1.txt";
-
         let database = [];
         const searchInput = document.getElementById('search');
         const resultsList = document.getElementById('results');
@@ -58,13 +56,8 @@
         }
 
         async function autoSync() {
-            if (!ONLINE_JSON_URL || ONLINE_JSON_URL.includes("YOUR_RAW_GIST_LINK_HERE")) {
-                statusEl.innerText = "Set up your Gist URL in code to enable live updates.";
-                return;
-            }
-
             try {
-                const response = await fetch(ONLINE_JSON_URL + '?t=' + new Date().getTime());
+                const response = await fetch('./lyrics.json?t=' + new Date().getTime());
                 if (response.ok) {
                     const freshData = await response.json();
                     localStorage.setItem('auto_church_lyrics', JSON.stringify(freshData));
@@ -75,6 +68,8 @@
             } catch (err) {
                 if (database.length > 0) {
                     statusEl.innerText = "Offline mode • " + database.length + " songs saved";
+                } else {
+                    statusEl.innerText = "Offline • Connect once to internet to download songs";
                 }
             }
         }
@@ -93,7 +88,7 @@
 
         function displayResults(songs) {
             if (songs.length === 0) {
-                resultsList.innerHTML = '<li style="color:#888; text-align:center; padding:20px;">No songs found.</li>';
+                resultsList.innerHTML = '<li style="color:#888; text-align:center; padding:20px;">No songs found. Make sure lyrics.json is uploaded to GitHub.</li>';
                 return;
             }
             resultsList.innerHTML = songs.map(song => `
