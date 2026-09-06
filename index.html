@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worship Lyrics</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <style>
+        body { font-family: -apple-system, sans-serif; background-color: #121212; color: #ffffff; padding: 20px; max-width: 600px; margin: auto; }
+        input { width: 100%; padding: 15px; font-size: 18px; border-radius: 8px; border: none; margin-bottom: 15px; box-sizing: border-box; background: #2a2a2a; color: white; }
+        input:focus { outline: 2px solid #555; }
+        .song-list { list-style: none; padding: 0; }
+        .song-item { background: #1e1e1e; margin-bottom: 10px; padding: 15px; border-radius: 8px; cursor: pointer; border: 1px solid #333; }
+        .song-item:hover { background: #2a2a2a; }
+        .song-title { font-weight: bold; font-size: 18px; }
+        .song-key { color: #aaa; font-size: 14px; margin-top: 5px; }
+        #lyric-view { display: none; }
+        .back-btn { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 20px; }
+        pre { font-family: inherit; font-size: 20px; white-space: pre-wrap; line-height: 1.6; }
+        .lyric-tag { color: #4db8ff; font-weight: bold; }
+        .status-bar { font-size: 12px; color: #666; text-align: center; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="search-view">
+        <div class="status-bar" id="sync-status">Offline mode</div>
+        <input type="text" id="search" placeholder="Search for a song...">
+        <ul class="song-list" id="results"></ul>
+    </div>
+
+    <div id="lyric-view">
+        <button class="back-btn" onclick="closeLyrics()">← Back to Search</button>
+        <h2 id="view-title"></h2>
+        <div class="song-key" id="view-key"></div>
+        <pre id="view-lyrics"></pre>
+    </div>
+
+    <script>
+        const ONLINE_JSON_URL = "https://gist.githubusercontent.com/jashrenarldp-eng/7be4a19ecdac9710b186a0e0e2f7be04/raw/ecb8bc690097507d79c0f5b7b5b8f07d4b7961f3/gistfile1.txt";
+
+        let database = [];
+        const searchInput = document.getElementById('search');
+        const resultsList = document.getElementById('results');
+        const statusEl = document.getElementById('sync-status');
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
+
+        function loadLocalLyrics() {
+            const saved = localStorage.getItem('auto_church_lyrics');
+            if (saved) {
+                database = JSON.parse(saved);
+                displayResults(database);
+            }
+        }
+
+        async function autoSync() {
+            if (!ONLINE_JSON_URL || ONLINE_JSON_URL.includes("YOUR_RAW_GIST_LINK_HERE")) {
+                statusEl.innerText = "Set up your Gist URL in code to enable live updates.";
+                return;
+            }
+
+            try {
+                const response = await fetch(ONLINE_JSON_URL + '?t=' + new Date().getTime());
+                if (response.ok) {
+                    const freshData = await response.json();
+                    localStorage.setItem('auto_church_lyrics', JSON.stringify(freshData));
+                    database = freshData;
+                    displayResults(database);
+                    statusEl.innerText = "Updated automatically • " + freshData.length + " songs ready";
+                }
+            } catch (err) {
+                if (database.length > 0) {
+                    statusEl.innerText = "Offline mode • " + database.length + " songs saved";
+                }
+            }
+        }
+
+        loadLocalLyrics();
+        autoSync();
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = database.filter(song => 
+                song.title.toLowerCase().includes(query) || 
+                song.lyrics.toLowerCase().includes(query)
+            );
+            displayResults(filtered);
+        });
+
+        function displayResults(songs) {
+            if (songs.length === 0) {
+                resultsList.innerHTML = '<li style="color:#888; text-align:center; padding:20px;">No songs found.</li>';
+                return;
+            }
+            resultsList.innerHTML = songs.map(song => `
+                <li class="song-item" onclick="openLyrics('${song.title.replace(/'/g, "\\'")}')">
+                    <div class="song-title">${song.title}</div>
+                    <div class="song-key">Key: ${song.key}</div>
+                </li>
+            `).join('');
+        }
+
+        function openLyrics(title) {
+            const song = database.find(s => s.title === title);
+            document.getElementById('view-title').innerText = song.title;
+            document.getElementById('view-key').innerText = "Key: " + song.key;
+            
+            const styledLyrics = song.lyrics.replace(/\[(.*?)\]/g, '<span class="lyric-tag">[$1]</span>');
+            document.getElementById('view-lyrics').innerHTML = styledLyrics;
+            
+            document.getElementById('search-view').style.display = 'none';
+            document.getElementById('lyric-view').style.display = 'block';
+            window.scrollTo(0, 0);
+        }
+
+        function closeLyrics() {
+            document.getElementById('search-view').style.display = 'block';
+            document.getElementById('lyric-view').style.display = 'none';
+            searchInput.value = ''; 
+            displayResults(database);
+        }
+    </script>
+</body>
+</html>
